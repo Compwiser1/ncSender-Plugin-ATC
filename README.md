@@ -1,128 +1,67 @@
-# Rapid Change ATC
+# ncSender Plugin - ATC
 
-> **IMPORTANT DISCLAIMER:** This plugin is part of my personal ncSender project. If you choose to use it, you do so entirely at your own risk. I am not responsible for any damage, malfunction, or personal injury that may result from the use or misuse of this plugin. Use it with caution and at your own discretion.
+**Version**: 0.1.63
+**Category**: Tool Changer
+**Requirements**: ncSender 2.0.0+ (OSS) or ncSender Pro 2.0.0+
 
-Automatic tool changer support for RapidChange ATC systems.
+Automatic tool changer support for **RapidChange ATC** systems in ncSender — automated `M6` tool change sequences, tool length setter integration, and a full configuration dialog from the Tools menu.
 
-## Installation
+> **IMPORTANT DISCLAIMER:** This plugin drives real machine motion, including spindle starts and Z moves toward a tool magazine. If you choose to use it, you do so entirely at your own risk. The maintainers are not responsible for any damage, malfunction, or personal injury that may result from its use or misuse. Verify every position setting and dry-run before cutting.
 
-Install this plugin in ncSender through the Plugins interface.
+---
 
-## Features
+## 📦 About this repository
 
-### Automatic Tool Change
-- Automated M6 tool change sequences for multi-pocket ATC systems
-- Support for 1-8 tool pockets
+This is a continuation fork of [siganberg/ncsender-plugin-rapidchangeatc](https://github.com/siganberg/ncsender-plugin-rapidchangeatc), originally created by Francis Marasigan, preserved and maintained here so the plugin keeps working after the upstream repository goes away. The full upstream commit history is retained in this repo.
+
+The plugin id is unchanged (`com.ncsender.rapidchangeatc`), so an existing install keeps its saved settings when it is updated from this repo. Only one copy of the plugin should be enabled at a time.
+
+---
+
+## 🎯 What it does
+
+### Automatic tool change
+- Automated `M6` tool change sequences for multi-pocket ATC systems
+- Support for 1–8 tool pockets
 - Configurable pocket orientation (X or Y axis) and direction
-- Automatic pocket position calculation based on pocket distance
-- Smart tool change optimization (skip if same tool)
+- Automatic pocket position calculation from pocket distance
+- Skips the change entirely when the requested tool is already loaded
 
-### Tool Length Setter Integration
-- Automated tool length probing with `$TLS` command
-- Configurable tool setter location (X/Y coordinates)
-- Configurable probe parameters (seek distance, feedrate)
-- Automatic tool offset management via G43.1
-- Per-tool TLS offsets from Tool Library
-- Optional automatic TLS after first `$H` (home) command
+### Tool length setter integration
+- Automated tool length probing via the `$TLS` command
+- Configurable tool setter X/Y location and probe parameters (seek distance, feedrate)
+- Automatic tool offset management via `G43.1`
+- Per-tool TLS offsets pulled from the ncSender Tool Library
+- Optional automatic TLS after the first `$H` (home)
 - Multiple sensor options (Probe/TLS or Aux ports)
 
-### RapidChange ATC Models
-- **Basic** - Standard ATC functionality
-- **Pro** - Enhanced features with spindle-at-speed support
-- **Premium** - Full features including dust cover commands
+### RapidChange ATC models
+- **Basic** — standard ATC functionality
+- **Pro** — adds spindle-at-speed support
+- **Premium** — full features including dust cover commands
 
-### Collet Size Support
-- ER11, ER16, ER20, ER25, ER32
-- Automatic RPM and Z retreat defaults based on collet size
+### Collet sizes
+ER11, ER16, ER20, ER25, ER32 — RPM and Z retreat defaults are applied automatically per collet size.
 
-### Probe Tool Support (Tool 99)
-- Optional probe tool with custom load/unload G-code
-- Dedicated probe tool handling separate from regular tools
+### Probe tool (tool 99)
+Optional dedicated probe tool with custom load/unload G-code, handled separately from regular tools.
 
-### Safety Features
-- Modal dialogs for tool change confirmation
-- Non-closable safety dialogs during critical operations
-- Clear instructions with Abort/Continue options
-- Spindle-at-speed verification option
+### Safety
+- Modal, non-closable dialogs during critical operations, each with **Abort** / **Continue**
+- Operator prompts appear only after machine motion has fully stopped
+- Optional spindle-at-speed verification
 - Configurable ATC start delay
 
-### Supported Commands
+---
+
+## ⌨️ Supported commands
 
 | Command | Description |
 |---------|-------------|
-| `M6 Tx` | Perform automatic tool change to pocket x |
-| `$TLS` | Run tool length setter routine |
-| `$POCKET1` | Move to pocket 1 position |
-| `$H` | Home machine (with optional automatic TLS if tool loaded) |
-
-## Configuration Options
-
-### ATC Settings
-- **Collet Size** - ER11, ER16, ER20, ER25, ER32
-- **Model** - Basic, Pro, Premium
-- **Number of Pockets** - 1 to 8
-- **Orientation** - X or Y axis
-- **Direction** - Positive or Negative
-- **Pocket Distance** - Distance between pockets (mm)
-
-### Position Settings
-- **Pocket 1** - X/Y location of first pocket
-- **Tool Setter** - X/Y location of tool length setter
-- **Manual Tool** - X/Y location for manual tool operations
-
-### Tool Change Settings
-- **Load RPM** - Spindle speed for loading tools
-- **Unload RPM** - Spindle speed for unloading tools
-- **Engage Feedrate** - Feed rate for pocket engagement
-- **Spindle At Speed** - Wait for spindle to reach speed
-- **ATC Start Delay** - Delay before starting ATC sequence (0-10 seconds)
-
-### Tool Setter Settings
-- **Seek Distance** - Probe travel distance (mm)
-- **Seek Feedrate** - Probe feed rate (mm/min)
-- **Tool Sensor** - Probe/TLS or Aux port selection
-
-### Premium Features
-- **Cover Open Command** - G-code to open dust cover
-- **Cover Close Command** - G-code to close dust cover
-
-### Probe Tool (Tool 99)
-- **Add Probe** - Enable probe tool support
-- **Probe Load G-code** - Custom G-code for loading probe
-- **Probe Unload G-code** - Custom G-code for unloading probe
-
-### Advanced Settings
-- **Show Macro Commands** - Display expanded G-code in terminal
-- **Perform TLS after HOME** - Automatic TLS after first homing
-
-### Advanced Settings (JSON only)
-
-These settings can be modified directly in the plugin settings JSON:
-
-```json
-{
-  "zEngagement": -50,
-  "zSafe": 0,
-  "zSpinOff": 23,
-  "zRetreat": 7,
-  "zProbeStart": -20,
-  "zone1": -27.0,
-  "zone2": -22.0
-}
-```
-
-## Usage
-
-1. Open the RapidChangeATC dialog from the Tools menu
-2. Select your **Collet Size** and **Model**
-3. Configure the number of **Pockets**, **Orientation**, and **Direction**
-4. Set **Pocket 1** location using the "Grab" button
-5. Set **Tool Setter** location using the "Grab" button
-6. Optionally configure **Manual Tool** location
-7. Adjust RPM and other settings as needed
-8. Save configuration
-
-### G-code Commands
+| `M6 Tx` | Perform an automatic tool change to pocket x |
+| `$TLS` | Run the tool length setter routine |
+| `$POCKET1` | Move to the pocket 1 position |
+| `$H` | Home the machine (with optional automatic TLS if a tool is loaded) |
 
 ```gcode
 ; Automatic tool change to tool 3
@@ -138,14 +77,105 @@ $POCKET1
 $H
 ```
 
-## Development
+---
 
-This plugin is part of the ncSender ecosystem: https://github.com/siganberg/ncSender
+## 📖 How to use
 
-## License
+1. Open the **RapidChangeATC** dialog from the Tools menu.
+2. Select your **Collet Size** and **Model**.
+3. Configure the number of **Pockets**, **Orientation**, and **Direction**.
+4. Set the **Pocket 1** location using the **Grab** button.
+5. Set the **Tool Setter** location using the **Grab** button.
+6. Optionally configure the **Manual Tool** location.
+7. Adjust RPM and the remaining settings as needed.
+8. Save the configuration.
 
-This plugin is available under a **dual license** (GPL-3.0 + Commercial).
+---
 
-See the [LICENSE](LICENSE) file for details, or contact support@franciscreation.com for commercial licensing.
+## ⚙️ Configuration options
 
-Copyright (C) 2024 Francis Marasigan
+### ATC settings
+- **Collet Size** — ER11, ER16, ER20, ER25, ER32
+- **Model** — Basic, Pro, Premium
+- **Number of Pockets** — 1 to 8
+- **Orientation** — X or Y axis
+- **Direction** — positive or negative
+- **Pocket Distance** — distance between pockets (mm)
+
+### Position settings
+- **Pocket 1** — X/Y location of the first pocket
+- **Tool Setter** — X/Y location of the tool length setter
+- **Manual Tool** — X/Y location for manual tool operations
+
+### Tool change settings
+- **Load RPM** — spindle speed for loading tools
+- **Unload RPM** — spindle speed for unloading tools
+- **Engage Feedrate** — feed rate for pocket engagement
+- **Spindle At Speed** — wait for the spindle to reach speed
+- **ATC Start Delay** — delay before starting the ATC sequence (0–10 s)
+
+### Tool setter settings
+- **Seek Distance** — probe travel distance (mm)
+- **Seek Feedrate** — probe feed rate (mm/min)
+- **Tool Sensor** — Probe/TLS or Aux port selection
+
+### Premium features
+- **Cover Open Command** — G-code to open the dust cover
+- **Cover Close Command** — G-code to close the dust cover
+
+### Probe tool (tool 99)
+- **Add Probe** — enable probe tool support
+- **Probe Load G-code** — custom G-code for loading the probe
+- **Probe Unload G-code** — custom G-code for unloading the probe
+
+### Advanced settings
+- **Show Macro Commands** — display expanded G-code in the terminal
+- **Perform TLS after HOME** — automatic TLS after the first homing
+
+### Advanced settings (JSON only)
+
+These are edited directly in the plugin settings JSON:
+
+```json
+{
+  "zEngagement": -50,
+  "zSafe": 0,
+  "zSpinOff": 23,
+  "zRetreat": 7,
+  "zProbeStart": -20,
+  "zone1": -27.0,
+  "zone2": -22.0
+}
+```
+
+---
+
+## 🔧 Technical details
+
+- `commands.js` is pure command-processing logic — no `import`/`require`/`fetch`/`ctx` — so it runs on Node.js natively and inside the .NET Jint sandbox (`pro-v2` runtime).
+- `config.html` is the client-side configuration dialog; it reads and writes plugin settings through `/api/plugins/com.ncsender.rapidchangeatc/settings`.
+- Hooks the `onBeforeCommand` event and requires the `gcode.modify` permission.
+- Operator-facing dialog text lives in the `messages` block of `manifest.json`.
+
+---
+
+## 🚀 Releases
+
+Releases are built by the `release-build.yml` GitHub Actions workflow, which fires on any pushed tag matching `v*.*.*` and refuses to build if the tag doesn't match the `version` field in `manifest.json`. Each release publishes both a versioned zip and a `-latest.zip` copy at a stable download URL.
+
+To cut a release locally:
+
+```bash
+.scripts/bump-release.sh patch
+```
+
+`patch`, `minor`, `major`, or an explicit `X.Y.Z` all work. The script bumps `manifest.json`, opens `latest_release.md` for release notes, commits, tags, and pushes.
+
+---
+
+## 📄 License
+
+GNU General Public License v3.0 — see [LICENSE](LICENSE).
+
+Copyright (C) 2024 Francis Marasigan (original author)
+Copyright (C) 2026 Compwiser1 (this fork)

@@ -1,113 +1,114 @@
 name: Build and Release Plugin
 
+# Triggers on any tag push matching v*.*.* (e.g. v1.0.0). Typical flow is:
+#   1. Bump manifest.json "version" (see .scripts/bump-release.sh)
+#   2. Commit as: chore: create new release vX.X.X
+#   3. Tag the commit: git tag vX.X.X
+#   4. Push both: git push && git push --tags
+# The push of the tag is what triggers this workflow.
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 jobs:
-  release:
-    name: Create Plugin Release
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+  build-and-release:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
-      - name: Get plugin info
-        id: plugin_info
+      - name: Read plugin id and version from manifest.json
+        id: manifest
         run: |
           PLUGIN_ID=$(jq -r '.id' manifest.json)
-          PLUGIN_NAME=$(jq -r '.name' manifest.json)
-          PLUGIN_VERSION=$(jq -r '.version' manifest.json)
-          TAG="${{ github.ref_name }}"
-
-          echo "PLUGIN_ID=$PLUGIN_ID" >> $GITHUB_OUTPUT
-          echo "PLUGIN_NAME=$PLUGIN_NAME" >> $GITHUB_OUTPUT
-          echo "PLUGIN_VERSION=$PLUGIN_VERSION" >> $GITHUB_OUTPUT
-          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          MANIFEST_VERSION=$(jq -r '.version' manifest.json)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
 
           echo "Plugin ID: $PLUGIN_ID"
-          echo "Plugin Name: $PLUGIN_NAME"
-          echo "Plugin Version: $PLUGIN_VERSION"
-          echo "Tag: $TAG"
+          echo "manifest.json version: $MANIFEST_VERSION"
+          echo "Tag version: $TAG_VERSION"
 
-      - name: Create plugin package
-        run: |
-          mkdir -p dist
-          PLUGIN_ID="${{ steps.plugin_info.outputs.PLUGIN_ID }}"
-          TAG="${{ steps.plugin_info.outputs.TAG }}"
-          ZIP_NAME="${PLUGIN_ID}_${TAG}.zip"
-
-          # Create a temporary directory for the plugin
-          mkdir -p "tmp/$PLUGIN_ID"
-
-          # Copy all files except .git, .github, .scripts, dist, and latest_release.md
-          rsync -av --exclude='.git' --exclude='.github' --exclude='.scripts' --exclude='dist' --exclude='latest_release.md' --exclude='tmp' ./ "tmp/$PLUGIN_ID/"
-
-          # Create zip from the temporary directory
-          cd tmp
-          zip -r "../dist/$ZIP_NAME" "$PLUGIN_ID"
-          cd ..
-
-          # Cleanup
-          rm -rf tmp
-
-          echo "Created package: dist/$ZIP_NAME"
-          ls -lh dist/
-
-      - name: Get release notes from latest_release.md
-        id: release_notes
-        run: |
-          if [ -f "latest_release.md" ]; then
-            cp latest_release.md release-notes.md
-            echo "Release notes content:"
-            cat release-notes.md
-            echo "---END RELEASE NOTES---"
-          else
-            echo "⚠️ latest_release.md not found, using default message"
-            echo "Release ${{ github.ref_name }}" > release-notes.md
+          if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match manifest.json version ${MANIFEST_VERSION}. Update manifest.json before tagging."
+            exit 1
           fi
 
-      - name: Create Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "plugin_id=$PLUGIN_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$MANIFEST_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stage plugin files
         run: |
-          PLUGIN_NAME="${{ steps.plugin_info.outputs.PLUGIN_NAME }}"
-          TAG="${{ steps.plugin_info.outputs.TAG }}"
+          PLUGIN_ID="${{ steps.manifest.outputs.plugin_id }}"
+          mkdir -p "tmp/$PLUGIN_ID"
+          rsync -a \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.scripts' \
+            --exclude 'dist' \
+            --exclude 'tmp' \
+            --exclude '.gitignore' \
+            --exclude 'latest_release.md' \
+            ./ "tmp/$PLUGIN_ID/"
 
-          gh release create "$TAG" \
-            --repo ${{ github.repository }} \
-            --title "$PLUGIN_NAME $TAG" \
-            --notes-file release-notes.md \
-            dist/*.zip
+      - name: Build release zip
+        id: zip
+        run: |
+          PLUGIN_ID="${{ steps.manifest.outputs.plugin_id }}"
+          VERSION="${{ steps.manifest.outputs.version }}"
+          mkdir -p dist
+          ZIP_NAME="${PLUGIN_ID}-v${VERSION}.zip"
+          (cd tmp && zip -r "../dist/${ZIP_NAME}" "${PLUGIN_ID}")
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "zip_path=dist/${ZIP_NAME}" >> "$GITHUB_OUTPUT"
 
-      - name: Announce on Discord
-        if: success() && env.DISCORD_WEBHOOK_URL != ''
+          # Also publish an unversioned copy so there's a permanent, stable
+          # install/download URL that always points at the newest release.
+          LATEST_ZIP_NAME="${PLUGIN_ID}-latest.zip"
+          cp "dist/${ZIP_NAME}" "dist/${LATEST_ZIP_NAME}"
+          echo "latest_zip_name=$LATEST_ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "latest_zip_path=dist/${LATEST_ZIP_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Get release notes
+        id: notes
+        run: |
+          if [ -f latest_release.md ]; then
+            # latest_release.md is a cumulative changelog (newest section on
+            # top). Publish ONLY the topmost "## vX.X.X" section as this
+            # release's notes, not the whole history. awk prints from the
+            # first "## " header up to (but not including) the next one.
+            SECTION=$(awk '/^## /{if (seen) exit; seen=1} seen' latest_release.md)
+            {
+              echo 'body<<RELEASE_NOTES_EOF'
+              echo "$SECTION"
+              echo 'RELEASE_NOTES_EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "body=Release ${{ steps.manifest.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.manifest.outputs.plugin_id }} v${{ steps.manifest.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
+          files: |
+            ${{ steps.zip.outputs.zip_path }}
+            ${{ steps.zip.outputs.latest_zip_path }}
+          fail_on_unmatched_files: true
+
+      # Optional: post a notification when a release goes out. Only runs if
+      # a DISCORD_WEBHOOK_URL secret is configured on the repo — harmless
+      # no-op otherwise. Remove this step if you don't want it.
+      - name: Notify Discord (optional)
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          PLUGIN_NAME="${{ steps.plugin_info.outputs.PLUGIN_NAME }}"
-          TAG="${{ steps.plugin_info.outputs.TAG }}"
-          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
-
-          curl -H "Content-Type: application/json" \
-            -d "{
-              \"embeds\": [{
-                \"title\": \"🔌 ${PLUGIN_NAME} ${TAG} Released!\",
-                \"description\": \"A new version of the ${PLUGIN_NAME} plugin is now available.\",
-                \"url\": \"${RELEASE_URL}\",
-                \"color\": 1941124,
-                \"fields\": [
-                  {
-                    \"name\": \"Download\",
-                    \"value\": \"[View Release](${RELEASE_URL})\"
-                  }
-                ]
-              }]
-            }" \
+          curl -s -H "Content-Type: application/json" \
+            -d "{\"content\": \"🚀 **${{ steps.manifest.outputs.plugin_id }} v${{ steps.manifest.outputs.version }}** released: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}\"}" \
             "$DISCORD_WEBHOOK_URL"

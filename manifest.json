@@ -5,10 +5,10 @@
   "minAppVersion": "2.0.0",
   "commands": "commands.js",
   "configUi": "config.html",
-  "author": "ncSender",
+  "author": "Compwiser1",
   "description": "Rapid tool change workflow helper for automatic tool changers.",
   "category": "tool-changer",
-  "repository": "https://github.com/siganberg/ncsender-plugin-rapidchangeatc",
+  "repository": "https://github.com/Compwiser1/ncSender-Plugin-ATC",
   "priority": 50,
   "icon": "logo.png",
   "platforms": {

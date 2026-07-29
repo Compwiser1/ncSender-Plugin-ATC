@@ -1,1 +1,12 @@
+# Build artifacts
+dist/
+tmp/
+
+# OS / editor cruft
 .DS_Store
+Thumbs.db
+*.swp
+.claude/
+
+# Node (only relevant if tooling is ever added)
+node_modules/
